@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <unistd.h>
-
+#include <omp.h>
 #define MAX 50
 
 float **fst_matrix;
@@ -162,6 +162,88 @@ void mul_block(float **a, float **b, float **c, int size) {
     }
 }
 
+void mul_vector(float** __restrict__ a, float** __restrict__ b, float** __restrict__ c, int size) {
+    int i=0, j=0, k=0, ii=0, kk=0;
+    int bs = 8; //block size
+    float acc00=0, acc01=0, acc10=0, acc11=0;
+    for (ii = 0; ii < size; ii += bs) {
+        
+        for (kk = 0; kk < size; kk += bs) {
+            
+            for (j=0; j < size; j += 2) {
+            
+                for(i = ii; i < ii + bs; i += 2 ) {
+                    
+                    if (kk == 0)
+                        acc00 = acc01 = acc10 = acc11 = 0;
+                    else {
+                        acc00 = c[i + 0][j + 0];
+                        acc01 = c[i + 0][j + 1];
+                        acc10 = c[i + 1][j + 0];
+                        acc11 = c[i + 1][j + 1];
+                    }
+                    
+                    for (k = kk; k < kk + bs; k++) {
+                        acc00 += a[i + 0][k] * b[k][j + 0];
+                        acc01 += a[i + 0][k] * b[k][j + 1];
+                        acc10 += a[i + 1][k] * b[k][j + 0];
+                        acc11 += a[i + 1][k] * b[k][j + 1];
+                    }
+
+                    c[i + 0][j + 0] = acc00;
+                    c[i + 0][j + 1] = acc01;
+                    c[i + 1][j + 0] = acc10;
+                    c[i + 1][j + 1] = acc11;
+                }
+            }
+        }
+    }
+}
+
+void mul_omp(float **a, float **b, float **c, int size) {
+    int i, j, k, ii, kk;
+    int bs = 8; //block size
+    float acc00, acc01, acc10, acc11;
+
+    #pragma omp parallel shared(a, b, c) private(i, j, k, ii, kk) 
+    {
+        #pragma omp for schedule (static, 2)
+        for (ii = 0; ii < size; ii += bs) {
+            
+            for (kk = 0; kk < size; kk += bs) {
+                
+                for (j=0; j < size; j += 2) {
+                
+                    for(i = ii; i < ii + bs; i += 2 ) {
+                        
+                        if (kk == 0)
+                            acc00 = acc01 = acc10 = acc11 = 0;
+                        else {
+                            acc00 = c[i + 0][j + 0];
+                            acc01 = c[i + 0][j + 1];
+                            acc10 = c[i + 1][j + 0];
+                            acc11 = c[i + 1][j + 1];
+                        }
+                        
+                        for (k = kk; k < kk + bs; k++) {
+                            acc00 += a[i + 0][k] * b[k][j + 0];
+                            acc01 += a[i + 0][k] * b[k][j + 1];
+                            acc10 += a[i + 1][k] * b[k][j + 0];
+                            acc11 += a[i + 1][k] * b[k][j + 1];
+                        }
+
+                        c[i + 0][j + 0] = acc00;
+                        c[i + 0][j + 1] = acc01;
+                        c[i + 1][j + 0] = acc10;
+                        c[i + 1][j + 1] = acc11;
+                    }
+                }
+            }
+        }
+    }
+}
+
+
 double dtime() {
     double tseconds = 0.0;
     struct timeval mytime;
@@ -193,13 +275,15 @@ int kBest(double* array,int size, int k, double tol) {
 void runFunc(void (*f)(float**, float**, float **, int), int size, double* t) {
     int run, sizet=0;
     double t0, t1;
-    for(run = 0; run < 1; run++){    
+    for(run = 0; run < 8; run++){    
         clearCache();
         t0 = dtime();
         (*f)(fst_matrix,snd_matrix,result_matrix,size);
         t1 = (dtime() - t0);
         t[sizet] = (double) (t1 * 1000.0);
         sizet++;
+        printMatrix(result_matrix,size);
+        printf("\n");
         free(result_matrix);
         result_matrix = createMatrix(0,size);
         if(kBest(t,sizet,3,5.0)) {
@@ -224,12 +308,13 @@ int main(int argc, char const *argv[]) {
     snd_matrix = createMatrix(1, size);
     result_matrix = createMatrix(0,size);
     
-    runFunc(mul,size,t);
-    runFunc(mul_t,size,t);
-    runFunc(mulIKJ,size,t);
-    runFunc(mulJKI,size,t);
-    runFunc(mulJKI_t,size,t);
-//    runFunc(mul_block,size,t);
+    // runFunc(mul,size,t);
+    // runFunc(mul_t,size,t);
+    // runFunc(mulIKJ,size,t);
+    // runFunc(mulJKI,size,t);
+    // runFunc(mulJKI_t,size,t);
+    runFunc(mul_block,size,t);
+    runFunc(mul_omp,size,t);
     freeMatrix(fst_matrix,size);
     freeMatrix(snd_matrix,size);
     freeMatrix(result_matrix,size);
