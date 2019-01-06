@@ -26,7 +26,7 @@ float** createMatrix(int value, int size) {
 }
 
 void freeMatrix(float** matrix, int size) {
-    int i, j;
+    int i;
     for(i = 0; i < size; i++) {
         free(matrix[i]);
     }
@@ -66,7 +66,7 @@ void trans(float** matrix, int size) {
 }   
 
 void mul(float **a, float **b, float **c, int size) {
-    float sum;
+
     int i, j, k;
     for (i = 0; i < size; i++) 
         for (j = 0; j < size; j++) 
@@ -76,7 +76,7 @@ void mul(float **a, float **b, float **c, int size) {
 }
 
 void mul_t(float **a, float **b, float **c, int size) {
-    float sum;
+
     int i, j, k;
     trans(b,size);
     for (i = 0; i < size; i++) 
@@ -97,7 +97,7 @@ void mulIKJ(float **a, float **b, float **c, int size) {
 }
 
 void mulJKI(float **a, float **b, float **c, int size) {
-    float sum;
+
     int i, j, k;
 
     for (j = 0; j < size; j++) {
@@ -109,7 +109,7 @@ void mulJKI(float **a, float **b, float **c, int size) {
 }
 
 void mulJKI_t(float **a, float **b, float **c, int size) {
-    float sum;
+
     int i, j, k;
 
     trans(a, size);
@@ -122,6 +122,44 @@ void mulJKI_t(float **a, float **b, float **c, int size) {
     }
     trans(c,size);
     return;
+}
+
+void mul_block(float **a, float **b, float **c, int size) {
+    int i, j, k, ii, kk;
+    int bs = 8; //block size
+    float acc00, acc01, acc10, acc11;
+    for (ii = 0; ii < size; ii += bs) {
+        
+        for (kk = 0; kk < size; kk += bs) {
+            
+            for (j=0; j < size; j += 2) {
+            
+                for(i = ii; i < ii + bs; i += 2 ) {
+                    
+                    if (kk == 0)
+                        acc00 = acc01 = acc10 = acc11 = 0;
+                    else {
+                        acc00 = c[i + 0][j + 0];
+                        acc01 = c[i + 0][j + 1];
+                        acc10 = c[i + 1][j + 0];
+                        acc11 = c[i + 1][j + 1];
+                    }
+                    
+                    for (k = kk; k < kk + bs; k++) {
+                        acc00 += a[i + 0][k] * b[k][j + 0];
+                        acc01 += a[i + 0][k] * b[k][j + 1];
+                        acc10 += a[i + 1][k] * b[k][j + 0];
+                        acc11 += a[i + 1][k] * b[k][j + 1];
+                    }
+
+                    c[i + 0][j + 0] = acc00;
+                    c[i + 0][j + 1] = acc01;
+                    c[i + 1][j + 0] = acc10;
+                    c[i + 1][j + 1] = acc11;
+                }
+            }
+        }
+    }
 }
 
 double dtime() {
@@ -153,9 +191,9 @@ int kBest(double* array,int size, int k, double tol) {
 }
 
 void runFunc(void (*f)(float**, float**, float **, int), int size, double* t) {
-    int i,run, sizet=0;
-    double t0, t1, ret;
-    for(run = 0; run < 8; run++){    
+    int run, sizet=0;
+    double t0, t1;
+    for(run = 0; run < 1; run++){    
         clearCache();
         t0 = dtime();
         (*f)(fst_matrix,snd_matrix,result_matrix,size);
@@ -178,9 +216,7 @@ void runFunc(void (*f)(float**, float**, float **, int), int size, double* t) {
 
 
 int main(int argc, char const *argv[]) {
-    int i, j;
     double *t = malloc(sizeof(double)*8);
-    double ijk, ikj, jki;
     int size = atoi(argv[1]);
     srand(getpid());
     
@@ -193,7 +229,7 @@ int main(int argc, char const *argv[]) {
     runFunc(mulIKJ,size,t);
     runFunc(mulJKI,size,t);
     runFunc(mulJKI_t,size,t);
-
+//    runFunc(mul_block,size,t);
     freeMatrix(fst_matrix,size);
     freeMatrix(snd_matrix,size);
     freeMatrix(result_matrix,size);
