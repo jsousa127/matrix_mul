@@ -163,7 +163,7 @@ void mul_block(float **a, float **b, float **c, int size) {
 }
 
 void mul_vector(float** __restrict__ a, float** __restrict__ b, float** __restrict__ c, int size) {
-    int i=0, j=0, k=0, ii=0, kk=0;
+    int i=0, j=0, ii=0, kk=0;
     int bs = 8; //block size
     float acc00=0, acc01=0, acc10=0, acc11=0;
     for (ii = 0; ii < size; ii += bs) {
@@ -183,13 +183,39 @@ void mul_vector(float** __restrict__ a, float** __restrict__ b, float** __restri
                         acc11 = c[i + 1][j + 1];
                     }
                     
-                    for (k = kk; k < kk + bs; k++) {
-                        acc00 += a[i + 0][k] * b[k][j + 0];
-                        acc01 += a[i + 0][k] * b[k][j + 1];
-                        acc10 += a[i + 1][k] * b[k][j + 0];
-                        acc11 += a[i + 1][k] * b[k][j + 1];
-                    }
-
+                    acc00 += a[i + 0][kk] * b[kk][j + 0];
+                    acc00 += a[i + 0][kk+1] * b[kk+1][j + 0];
+                    acc00 += a[i + 0][kk+2] * b[kk+2][j + 0];
+                    acc00 += a[i + 0][kk+3] * b[kk+3][j + 0];
+                    acc00 += a[i + 0][kk+4] * b[kk+4][j + 0];
+                    acc00 += a[i + 0][kk+5] * b[kk+5][j + 0];
+                    acc00 += a[i + 0][kk+6] * b[kk+6][j + 0];
+                    acc00 += a[i + 0][kk+7] * b[kk+7][j + 0];
+                    acc01 += a[i + 0][kk] * b[kk][j + 1];
+                    acc01 += a[i + 0][kk+1] * b[kk+1][j + 1];
+                    acc01 += a[i + 0][kk+2] * b[kk+2][j + 1];
+                    acc01 += a[i + 0][kk+3] * b[kk+3][j + 1];
+                    acc01 += a[i + 0][kk+4] * b[kk+4][j + 1];
+                    acc01 += a[i + 0][kk+5] * b[kk+5][j + 1];
+                    acc01 += a[i + 0][kk+6] * b[kk+6][j + 1];
+                    acc01 += a[i + 0][kk+7] * b[kk+7][j + 1];
+                    acc10 += a[i + 1][kk] * b[kk][j + 0];
+                    acc10 += a[i + 1][kk+1] * b[kk+1][j + 0];
+                    acc10 += a[i + 1][kk+2] * b[kk+2][j + 0];
+                    acc10 += a[i + 1][kk+3] * b[kk+3][j + 0];
+                    acc10 += a[i + 1][kk+4] * b[kk+4][j + 0];
+                    acc10 += a[i + 1][kk+5] * b[kk+5][j + 0];
+                    acc10 += a[i + 1][kk+6] * b[kk+6][j + 0];
+                    acc10 += a[i + 1][kk+7] * b[kk+7][j + 0];
+                    acc11 += a[i + 1][kk] * b[kk][j + 1];
+                    acc11 += a[i + 1][kk+1] * b[kk+1][j + 1];
+                    acc11 += a[i + 1][kk+2] * b[kk+2][j + 1];
+                    acc11 += a[i + 1][kk+3] * b[kk+3][j + 1];
+                    acc11 += a[i + 1][kk+4] * b[kk+4][j + 1];
+                    acc11 += a[i + 1][kk+5] * b[kk+5][j + 1];
+                    acc11 += a[i + 1][kk+6] * b[kk+6][j + 1];
+                    acc11 += a[i + 1][kk+7] * b[kk+7][j + 1];
+                   
                     c[i + 0][j + 0] = acc00;
                     c[i + 0][j + 1] = acc01;
                     c[i + 1][j + 0] = acc10;
@@ -244,6 +270,7 @@ void mul_omp(float **a, float **b, float **c, int size) {
 }
 
 
+
 double dtime() {
     double tseconds = 0.0;
     struct timeval mytime;
@@ -264,7 +291,7 @@ int kBest(double* array,int size, int k, double tol) {
     double sigma, top;
     if(size < 3) return 0;
     qsort(array, size, sizeof(double), cmpdouble);
-    sigma = (double)(array[0] * 0.05);
+    sigma = (double)(array[0] * tol);
     top = (double)(array[0] + sigma);
     for(i=1; i<k; i++) {
         if(array[i] > top) return 0;
@@ -282,11 +309,9 @@ void runFunc(void (*f)(float**, float**, float **, int), int size, double* t) {
         t1 = (dtime() - t0);
         t[sizet] = (double) (t1 * 1000.0);
         sizet++;
-        printMatrix(result_matrix,size);
-        printf("\n");
         free(result_matrix);
         result_matrix = createMatrix(0,size);
-        if(kBest(t,sizet,3,5.0)) {
+        if(kBest(t,sizet,3,0.05)) {
             printf("%f;",t[0]);
             return;
         }
@@ -308,12 +333,11 @@ int main(int argc, char const *argv[]) {
     snd_matrix = createMatrix(1, size);
     result_matrix = createMatrix(0,size);
     
-    // runFunc(mul,size,t);
-    // runFunc(mul_t,size,t);
-    // runFunc(mulIKJ,size,t);
-    // runFunc(mulJKI,size,t);
-    // runFunc(mulJKI_t,size,t);
+    runFunc(mulIKJ,size,t);
+    runFunc(mulJKI,size,t);
+    runFunc(mulJKI_t,size,t);
     runFunc(mul_block,size,t);
+    runFunc(mul_vector,size,t);
     runFunc(mul_omp,size,t);
     freeMatrix(fst_matrix,size);
     freeMatrix(snd_matrix,size);
